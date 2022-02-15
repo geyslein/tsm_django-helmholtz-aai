@@ -15,31 +15,16 @@ from django.views import generic
 
 from django_helmholtz_aai import app_settings, models
 
-CONF_URL = "https://login.helmholtz.de/oauth2/.well-known/openid-configuration"
 oauth = OAuth()
 
 SCOPES = [
-    "credentials",
-    "openid",
     "profile",
-    "display_name",
-    "eduperson_entitlement",
-    "eduperson_principal_name",
-    "offline_access",
-    "eduperson_scoped_affiliation",
-    "eduperson_unique_id",
-    "sn",
-    "eduperson_assurance",
     "email",
-    "single-logout",
+    "eduperson_unique_id",
 ]
 
 
-oauth.register(
-    name="helmholtz",
-    server_metadata_url=CONF_URL,
-    client_kwargs={"scope": " ".join(SCOPES)},
-)
+oauth.register(name="helmholtz", **app_settings.HELMHOLTZ_CLIENT_KWS)
 
 
 User = get_user_model()
