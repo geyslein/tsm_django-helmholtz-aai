@@ -83,42 +83,69 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                     self.userinfo["eduperson_entitlement"],
                 )
             ):
+                self.permission_denied_message = (
+                    "Your virtual organization is not allowed to log into "
+                    "this website."
+                )
                 return False
-        return self.userinfo["email_verified"]
+        if not self.userinfo["email_verified"]:
+            self.permission_denied_message = (
+                "Your email has not been verified."
+            )
+            return False
+        return True
 
     def get_or_create_user(self) -> models.HelmholtzUser:
+        def username_exists() -> bool:
+            return bool(models.HelmholtzUser.objects.filter(username=username))
+
+        def email_exists() -> bool:
+            return bool(models.HelmholtzUser.objects.filter(email=email))
 
         userinfo = self.userinfo
 
         # try if we find a user
+        username = userinfo["preferred_username"]
+        email = userinfo["email"]
+        if not username:
+            username = userinfo["email"]
         try:
             user = models.HelmholtzUser.objects.get(
                 eduperson_unique_id=userinfo["eduperson_unique_id"]
             )
         except models.HelmholtzUser.DoesNotExist:
-            # TODO: test for user name and email
-
+            # test for user name
+            # if the preferred_username already exists, we use the mail address
+            if username_exists():
+                username = userinfo["email"]
+            if email_exists():
+                self.permission_denied_message = (
+                    f"A user with the email {email} already exists."
+                )
+                self.handle_no_permission()
             user = models.HelmholtzUser.objects.create(
-                username=userinfo["preferred_username"],
+                username=username,
                 first_name=userinfo["given_name"],
                 last_name=userinfo["family_name"],
-                email=userinfo["email"],
+                email=email,
                 eduperson_unique_id=userinfo["eduperson_unique_id"],
             )
         else:
             to_update = {}
-            if user.username != userinfo["preferred_username"]:
-                if not User.objects.filter(
-                    username=userinfo["preferred_username"]
-                ):
-                    to_update["username"] = userinfo["preferred_username"]
+            if user.username != username and not username_exists():
+                if not User.objects.filter(username=username):
+                    to_update["username"] = username
             if user.first_name != userinfo["given_name"]:
                 to_update["first_name"] = userinfo["given_name"]
             if user.last_name != userinfo["family_name"]:
                 to_update["last_name"] = userinfo["family_name"]
             if user.email != userinfo["email"]:
-                if not User.objects.filter(email=userinfo["email"]):
-                    to_update["email"] = userinfo["email"]
+                if email_exists():
+                    self.permission_denied_message = (
+                        f"A user with the email {email} already exists."
+                    )
+                    self.handle_no_permission()
+                to_update["email"] = email
             if to_update:
                 for key, val in to_update.items():
                     setattr(user, key, val)
