@@ -1,0 +1,10 @@
+[tool.isort]
+profile = "black"
+line_length = 79
+src_paths = ["django_helmholtz_aai"]
+float_to_top = true
+known_first_party = "django_helmholtz_aai"
+
+[tool.black]
+line-length = 79
+target-version = ['py38']

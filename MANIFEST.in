@@ -1,0 +1,2 @@
+include versioneer.py
+include django_helmholtz_aai/_version.py

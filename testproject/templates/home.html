@@ -1,0 +1,12 @@
+{% if user %}
+<pre>
+{{ user }}
+</pre>
+
+<pre>
+    {% for group in user.groups.all %} {{ group }} {% endfor %}
+</pre>
+<hr>
+{% endif %}
+
+<a href="{% url 'django_helmholtz_aai:login' %}">login</a>
