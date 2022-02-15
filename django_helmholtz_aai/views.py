@@ -90,7 +90,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         userinfo = self.userinfo
 
         # try if we find a user
-        username = userinfo["preferred_username"]
+        username = userinfo.get("preferred_username")
         email = userinfo["email"]
         if not username:
             username = userinfo["email"]
@@ -124,7 +124,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                 to_update["first_name"] = userinfo["given_name"]
             if user.last_name != userinfo["family_name"]:
                 to_update["last_name"] = userinfo["family_name"]
-            if user.email != userinfo["email"]:
+            if user.email != email:
                 if email_exists():
                     self.permission_denied_message = (
                         f"A user with the email {email} already exists."
