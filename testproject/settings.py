@@ -133,7 +133,7 @@ FORCE_SCRIPT_NAME = os.getenv("FORCE_SCRIPT_NAME", "/proxy/8000/")
 
 STATIC_URL = FORCE_SCRIPT_NAME + "static/"
 
-# STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = BASE_DIR / "static"
 
 HELMHOLTZ_ALLOWED_VOS = [r"urn:geant:helmholtz.de:group:HCDC"]
 

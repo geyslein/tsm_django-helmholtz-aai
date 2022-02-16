@@ -31,6 +31,8 @@ repos:
           - "79"
           - --exclude
           - migrations
+          - --exclude
+          - venv
           - .
   - repo: https://github.com/keewis/blackdoc
     rev: v0.3.4

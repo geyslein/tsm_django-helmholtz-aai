@@ -137,4 +137,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+static/
+
 dag_test/migrations/00*.py
