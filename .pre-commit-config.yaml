@@ -33,7 +33,8 @@ repos:
           - migrations
           - --exclude
           - venv
-          - .
+          - django_helmholtz_aai
+          - testproject
   - repo: https://github.com/keewis/blackdoc
     rev: v0.3.4
     hooks:

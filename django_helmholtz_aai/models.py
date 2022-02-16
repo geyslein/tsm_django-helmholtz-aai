@@ -3,7 +3,7 @@ from django.contrib.auth.models import Group
 from django.db import models
 
 
-class HelmholtzUser(get_user_model()):
+class HelmholtzUser(get_user_model()):  # type: ignore
     """A User in the in the Helmholtz AAI."""
 
     eduperson_unique_id = models.CharField(max_length=500, unique=True)

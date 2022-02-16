@@ -6,14 +6,15 @@ from typing import Any, Dict
 
 from authlib.integrations.django_client import OAuth
 from django.contrib.auth import get_user_model
-from django.contrib.auth import login as auth_login
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.functional import cached_property
 from django.views import generic
 
-from django_helmholtz_aai import app_settings, models, signals
+from django_helmholtz_aai import app_settings
+from django_helmholtz_aai import login as aai_login
+from django_helmholtz_aai import models, signals
 
 oauth = OAuth()
 
@@ -49,12 +50,16 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         token = oauth.helmholtz.authorize_access_token(self.request)
         return oauth.helmholtz.userinfo(request=self.request, token=token)
 
+    def login_user(self, user: models.HelmholtzUser):
+        """Login the django user."""
+        aai_login(self.request, user, self.userinfo)
+
     def get(self, request):
 
         user = self.get_or_create_user()
         self.synchronize_vos(user, self.userinfo["eduperson_entitlement"])
 
-        auth_login(request, user)
+        self.login_user(user)
 
         return redirect(reverse("home"))
 
@@ -88,7 +93,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
     def _email_exists(email: str) -> bool:
         return bool(models.HelmholtzUser.objects.filter(email=email))
 
-    def create_user(self, userinfo: Dict[str, Any]) -> User:
+    def create_user(self, userinfo: Dict[str, Any]) -> models.HelmholtzUser:
         """Create a Django user for a Helmholtz AAI User."""
 
         username = userinfo["preferred_username"]
@@ -118,7 +123,9 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         )
         return user
 
-    def update_user(self, user: User, userinfo: Dict[str, Any]):
+    def update_user(
+        self, user: models.HelmholtzUser, userinfo: Dict[str, Any]
+    ):
         """Update the user from the provided information."""
         to_update = {}
 
@@ -166,14 +173,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             user = self.create_user(userinfo)
         else:
             self.update_user(user, userinfo)
-        # emit the aai_user_logged_in signal as an existing user has been
-        # logged in
-        signals.aai_user_logged_in.send(
-            sender=user.__class__,
-            user=user,
-            request=self.request,
-            userinfo=userinfo,
-        )
+
         return user
 
     def synchronize_vos(self, user, vos):

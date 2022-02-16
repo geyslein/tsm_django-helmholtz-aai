@@ -1,0 +1,21 @@
+image: python:3.8-alpine
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+before_script:
+  - python -V  # Print out python version for debugging
+  - python -m venv venv
+  - source venv/bin/activate
+
+test:
+  script:
+    - pip install tox .[testsite]
+    - sh ci/check-migrations.sh
+    - python manage.py migrate
+    - tox
