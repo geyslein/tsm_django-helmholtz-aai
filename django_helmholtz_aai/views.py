@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils.functional import cached_property
 from django.views import generic
 
-from django_helmholtz_aai import app_settings, models
+from django_helmholtz_aai import app_settings, models, signals
 
 oauth = OAuth()
 
@@ -80,61 +80,100 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             return False
         return True
 
-    def get_or_create_user(self) -> models.HelmholtzUser:
-        def username_exists() -> bool:
-            return bool(models.HelmholtzUser.objects.filter(username=username))
+    @staticmethod
+    def _username_exists(username: str):
+        return bool(models.HelmholtzUser.objects.filter(username=username))
 
-        def email_exists() -> bool:
-            return bool(models.HelmholtzUser.objects.filter(email=email))
+    @staticmethod
+    def _email_exists(email: str) -> bool:
+        return bool(models.HelmholtzUser.objects.filter(email=email))
+
+    def create_user(self, userinfo: Dict[str, Any]) -> User:
+        """Create a Django user for a Helmholtz AAI User."""
+
+        username = userinfo["preferred_username"]
+        email = userinfo["email"]
+
+        if self._username_exists(username):
+            username = userinfo["email"]
+        if self._email_exists(email):
+            self.permission_denied_message = (
+                f"A user with the email {email} already exists."
+            )
+            self.handle_no_permission()
+        user = models.HelmholtzUser.objects.create(
+            username=username,
+            first_name=userinfo["given_name"],
+            last_name=userinfo["family_name"],
+            email=email,
+            eduperson_unique_id=userinfo["eduperson_unique_id"],
+        )
+
+        # emit the aai_user_created signal after the user has been created
+        signals.aai_user_created.send(
+            sender=user.__class__,
+            user=user,
+            request=self.request,
+            userinfo=userinfo,
+        )
+        return user
+
+    def update_user(self, user: User, userinfo: Dict[str, Any]):
+        """Update the user from the provided information."""
+        to_update = {}
+
+        username = userinfo["preferred_username"]
+        email = userinfo["email"]
+
+        if user.username != username and not self._username_exists(username):
+            if not User.objects.filter(username=username):
+                to_update["username"] = username
+        if user.first_name != userinfo["given_name"]:
+            to_update["first_name"] = userinfo["given_name"]
+        if user.last_name != userinfo["family_name"]:
+            to_update["last_name"] = userinfo["family_name"]
+        if user.email != email:
+            if self._email_exists(email):
+                self.permission_denied_message = (
+                    f"A user with the email {email} already exists."
+                )
+                self.handle_no_permission()
+            to_update["email"] = email
+        if to_update:
+            for key, val in to_update.items():
+                setattr(user, key, val)
+            user.save()
+
+            # emit the aai_user_updated signal as the user has been updated
+            signals.aai_user_updated.send(
+                sender=user.__class__,
+                user=user,
+                request=self.request,
+                userinfo=userinfo,
+            )
+
+    def get_or_create_user(self) -> models.HelmholtzUser:
 
         userinfo = self.userinfo
 
-        # try if we find a user
-        username = userinfo.get("preferred_username")
-        email = userinfo["email"]
-        if not username:
-            username = userinfo["email"]
+        if not userinfo.get("preferred_username"):
+            userinfo["preferred_username"] = userinfo["email"]
         try:
             user = models.HelmholtzUser.objects.get(
                 eduperson_unique_id=userinfo["eduperson_unique_id"]
             )
         except models.HelmholtzUser.DoesNotExist:
-            # test for user name
-            # if the preferred_username already exists, we use the mail address
-            if username_exists():
-                username = userinfo["email"]
-            if email_exists():
-                self.permission_denied_message = (
-                    f"A user with the email {email} already exists."
-                )
-                self.handle_no_permission()
-            user = models.HelmholtzUser.objects.create(
-                username=username,
-                first_name=userinfo["given_name"],
-                last_name=userinfo["family_name"],
-                email=email,
-                eduperson_unique_id=userinfo["eduperson_unique_id"],
-            )
+            user = self.create_user(userinfo)
         else:
-            to_update = {}
-            if user.username != username and not username_exists():
-                if not User.objects.filter(username=username):
-                    to_update["username"] = username
-            if user.first_name != userinfo["given_name"]:
-                to_update["first_name"] = userinfo["given_name"]
-            if user.last_name != userinfo["family_name"]:
-                to_update["last_name"] = userinfo["family_name"]
-            if user.email != email:
-                if email_exists():
-                    self.permission_denied_message = (
-                        f"A user with the email {email} already exists."
-                    )
-                    self.handle_no_permission()
-                to_update["email"] = email
-            if to_update:
-                for key, val in to_update.items():
-                    setattr(user, key, val)
-                user.save()
+            self.update_user(user, userinfo)
+        # emit the aai_user_logged_in signal as an existing user has been
+        # logged in
+        signals.aai_user_logged_in.send(
+            sender=user.__class__,
+            user=user,
+            request=self.request,
+            userinfo=userinfo,
+        )
         return user
 
     def synchronize_vos(self, user, vos):
@@ -160,6 +199,13 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                 eduperson_entitlement=vo_name
             )
             user.groups.remove(vo)
+            signals.aai_vo_left.send(
+                sender=vo.__class__,
+                request=self.request,
+                user=user,
+                vo=vo,
+                userinfo=self.userinfo,
+            )
 
         # add new VOs in the database
         for vo_name in set(actual_vos) - set(vo_names):
@@ -171,4 +217,17 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                 vo = models.HelmholtzVirtualOrganization.objects.create(
                     name=vo_name, eduperson_entitlement=vo_name
                 )
+                signals.aai_vo_created.send(
+                    sender=vo.__class__,
+                    request=self.request,
+                    vo=vo,
+                    userinfo=self.userinfo,
+                )
             user.groups.add(vo)
+            signals.aai_vo_entered.send(
+                sender=vo.__class__,
+                request=self.request,
+                user=user,
+                vo=vo,
+                userinfo=self.userinfo,
+            )
