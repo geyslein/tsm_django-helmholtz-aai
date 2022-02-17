@@ -4,6 +4,7 @@ import re
 from typing import TYPE_CHECKING, Any, Callable
 
 import pytest
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import PermissionDenied
 from django.utils.functional import cached_property
 
@@ -52,23 +53,15 @@ class PatchedHelmholtzAuthentificationView(HelmholtzAuthentificationView):
     def userinfo(self) -> dict[str, Any]:
         return self._userinfo
 
-    def login_user(self, user: models.HelmholtzUser):
-        """do nothing for login, just emit the signal."""
-
-        # emit the aai_user_logged_in signal as an existing user has been
-        # logged in
-        signals.aai_user_logged_in.send(
-            sender=user.__class__,
-            user=user,
-            request=self.request,
-            userinfo=self.userinfo,
-        )
-
 
 @pytest.fixture
 def authentification_view(db, rf: RequestFactory, userinfo: dict[str, Any]):
 
-    request = rf.get("/auth/")
+    request = rf.get("/helmholtz-aai/auth/")
+
+    middleware = SessionMiddleware()
+    middleware.process_request(request)
+    request.session.save()
 
     view = PatchedHelmholtzAuthentificationView()
     view._userinfo = userinfo
