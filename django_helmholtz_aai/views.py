@@ -5,8 +5,10 @@ from itertools import product
 from typing import Any, Dict
 
 from authlib.integrations.django_client import OAuth
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.contrib.auth.views import LoginView
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.functional import cached_property
@@ -33,11 +35,18 @@ User = get_user_model()
 group_patt = re.compile(r".*:group:.*#.*")
 
 
-def login(request):
-    redirect_uri = request.build_absolute_uri(
-        reverse("django_helmholtz_aai:auth")
-    )
-    return oauth.helmholtz.authorize_redirect(request, redirect_uri)
+class HelmholtzLoginView(LoginView):
+    """A login view for the Helmholtz AAI that forwards to the OAuth login."""
+
+    def get(self, request):
+        redirect_uri = request.build_absolute_uri(
+            reverse("django_helmholtz_aai:auth")
+        )
+        request.session["forward_after_aai_login"] = self.get_success_url()
+        return oauth.helmholtz.authorize_redirect(request, redirect_uri)
+
+    def post(self, request):
+        return self.get(request)
 
 
 class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
@@ -61,7 +70,11 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
         self.login_user(user)
 
-        return redirect(reverse("home"))
+        return_url = request.session.pop(
+            "forward_after_aai_login", settings.LOGIN_REDIRECT_URL
+        )
+
+        return redirect(return_url)
 
     def has_permission(self) -> bool:
 
