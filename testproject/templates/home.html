@@ -9,4 +9,8 @@
 <hr>
 {% endif %}
 
-<a href="{% url 'django_helmholtz_aai:login' %}">login</a>
+{% if user.is_anonymous %}
+  <a href="{% url 'django_helmholtz_aai:login' %}">login</a>
+{% else %}
+  <a href="{% url 'logout' %}">logout</a>
+{% endif %}
