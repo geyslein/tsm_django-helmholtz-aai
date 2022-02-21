@@ -33,6 +33,7 @@ ALLOWED_HOSTS = ["*"]
 CSRF_TRUSTED_ORIGINS = ["https://*.local", "http://*.local"]
 
 LOGIN_REDIRECT_URL = "home"
+LOGIN_URL = "login"
 
 # Application definition
 
