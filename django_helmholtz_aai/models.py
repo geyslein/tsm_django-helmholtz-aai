@@ -1,4 +1,3 @@
-
 # Disclaimer
 # ----------
 #
@@ -23,7 +22,6 @@ from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING, Callable
-
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, GroupManager
