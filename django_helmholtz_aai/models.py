@@ -1,7 +1,10 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+import re
+from typing import TYPE_CHECKING, Callable
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, GroupManager
 from django.db import models
 
 if TYPE_CHECKING:
@@ -39,8 +42,64 @@ class HelmholtzUser(User):
     eduperson_unique_id = models.CharField(max_length=500, unique=True)
 
 
+class HelmholtzVirtualOrganizationQuerySet(models.QuerySet):
+    """A queryset with an extra command to remove empty VOs."""
+
+    def remove_empty_vos(
+        self,
+        exclude: list[str] = [],
+        without_confirmation: bool = True,
+    ) -> list[HelmholtzVirtualOrganization]:
+        """Remove empty virtual organizations.
+
+        This method filters for virtual organizations in the queryset and
+        removes them.
+
+        Parameters
+        ----------
+        exclude: list[str]
+            A list of strings that will be interpreted as regular expressions.
+            If a :attr:`~HelmholtzVirtualOrganization.eduperson_entitlement`
+            matches any of these strings, it will not be removed.
+        without_confirmation: bool
+            If True (default), remove the VO without asking for confirmation
+            using python's built-in :func:`input` from the command-line.
+
+        Returns
+        -------
+        list[HelmholtzVirtualOrganization]
+            The list of virtual organizations that have been removed
+        """
+        exclude_regex: Callable[str] = list(map(re.compile, exclude))  # type: ignore
+        vo: HelmholtzVirtualOrganization
+        removed: list[HelmholtzVirtualOrganization] = []
+        for vo in self.annotate(count=models.Count("user")).filter(count=0):
+            if not any(
+                patt.match(vo.eduperson_entitlement) for patt in exclude_regex
+            ):
+                if without_confirmation:
+                    vo.delete()
+                    removed.append(vo)
+                else:
+                    answer = ""
+                    while answer not in ["y", "n"]:
+                        answer = input(f"Remove {vo}? [y/n]").lower()
+                    if answer == "y":
+                        vo.delete()
+                        removed.append(vo)
+        return removed
+
+
+class HelmholtzVirtualOrganizationManager(
+    GroupManager.from_queryset(HelmholtzVirtualOrganizationQuerySet)
+):
+    """Database manager for the :class:`HelmholtzVirtualOrganization` model."""
+
+
 class HelmholtzVirtualOrganization(Group):
     """A VO in the Helmholtz AAI."""
+
+    objects = HelmholtzVirtualOrganizationManager()
 
     eduperson_entitlement = models.CharField(max_length=500, unique=True)
 
