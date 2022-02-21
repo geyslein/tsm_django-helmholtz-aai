@@ -4,6 +4,8 @@ import re
 from typing import TYPE_CHECKING, Any, Callable
 
 import pytest
+from django.contrib.auth.middleware import AuthenticationMiddleware
+from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import PermissionDenied
 from django.utils.functional import cached_property
@@ -49,6 +51,8 @@ class PatchedHelmholtzAuthentificationView(HelmholtzAuthentificationView):
 
     _userinfo: dict[str, Any]
 
+    raise_exception = True
+
     @cached_property
     def userinfo(self) -> dict[str, Any]:
         return self._userinfo
@@ -59,9 +63,15 @@ def authentification_view(db, rf: RequestFactory, userinfo: dict[str, Any]):
 
     request = rf.get("/helmholtz-aai/auth/")
 
-    middleware = SessionMiddleware()
-    middleware.process_request(request)
+    session_middleware = SessionMiddleware()
+    session_middleware.process_request(request)
     request.session.save()
+
+    auth_middleware = AuthenticationMiddleware()
+    auth_middleware.process_request(request)
+
+    message_middleware = MessageMiddleware()
+    message_middleware.process_request(request)
 
     view = PatchedHelmholtzAuthentificationView()
     view._userinfo = userinfo
@@ -107,6 +117,8 @@ def test_basic_get(
     authentification_view.dispatch(authentification_view.request)
 
     assert models.HelmholtzUser.objects.get(username=username)
+
+    authentification_view.is_new_user = False
 
 
 def test_signal_user_created(
@@ -196,6 +208,7 @@ def test_email_duplicate(
 
     new_id = orig_id + "123"
     userinfo["eduperson_unique_id"] = new_id
+    authentification_view.is_new_user = True
 
     with pytest.raises(PermissionDenied):
         test_basic_get(authentification_view, username)

@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from authlib.integrations.django_client import OAuth
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.auth.views import LoginView
@@ -52,7 +53,9 @@ class HelmholtzLoginView(LoginView):
 class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
     """Authentification view for the Helmholtz AAI."""
 
-    raise_exception = True
+    _permission_denied: bool = False
+
+    aai_user: models.HelmholtzUser
 
     @cached_property
     def userinfo(self) -> Dict[str, Any]:
@@ -65,10 +68,14 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
     def get(self, request):
 
-        user = self.get_or_create_user()
-        self.synchronize_vos(user, self.userinfo["eduperson_entitlement"])
+        if self.is_new_user:
+            self.aai_user = self.create_user(self.userinfo)
+        else:
+            self.update_user()
 
-        self.login_user(user)
+        self.synchronize_vos()
+
+        self.login_user(self.aai_user)
 
         return_url = request.session.pop(
             "forward_after_aai_login", settings.LOGIN_REDIRECT_URL
@@ -76,26 +83,68 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
         return redirect(return_url)
 
+    def handle_no_permission(self):
+        messages.add_message(
+            self.request, messages.ERROR, self.permission_denied_message
+        )
+        return super().handle_no_permission()
+
+    @cached_property
+    def is_new_user(self) -> bool:
+        try:
+            self.aai_user = models.HelmholtzUser.objects.get(
+                eduperson_unique_id=self.userinfo["eduperson_unique_id"]
+            )
+        except models.HelmholtzUser.DoesNotExist:
+            return True
+        else:
+            return False
+
     def has_permission(self) -> bool:
 
+        userinfo = self.userinfo
+        email = userinfo["email"]
+
+        # check if the user belongs to the allowed VOs
         if app_settings.HELMHOLTZ_ALLOWED_VOS:
             if not any(
                 patt.match(vo)
                 for patt, vo in product(
                     app_settings.HELMHOLTZ_ALLOWED_VOS,
-                    self.userinfo["eduperson_entitlement"],
+                    userinfo["eduperson_entitlement"],
                 )
             ):
                 self.permission_denied_message = (
-                    "Your virtual organization is not allowed to log into "
+                    "Your virtual organizations are not allowed to log into "
                     "this website."
                 )
                 return False
-        if not self.userinfo["email_verified"]:
+
+        # check for email verification
+        if not userinfo["email_verified"]:
             self.permission_denied_message = (
                 "Your email has not been verified."
             )
             return False
+
+        # check for email duplicates
+        if not self.is_new_user:
+            # check if we need to update the email and if yes, check if this
+            # is possible
+            if self.aai_user.email != email:
+                if self._email_exists(email):
+                    self.permission_denied_message = (
+                        f"You email in the Helmholtz AAI changed to {email}. "
+                        "A user with this email already exists and on this "
+                        "website. Please contact the website administrators."
+                    )
+                    return False
+        elif self._email_exists(email):
+            self.permission_denied_message = (
+                f"A user with the email {email} already exists."
+            )
+            return False
+
         return True
 
     @staticmethod
@@ -104,28 +153,14 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
     @staticmethod
     def _email_exists(email: str) -> bool:
+        if app_settings.HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED:
+            return False
         return bool(models.HelmholtzUser.objects.filter(email=email))
 
     def create_user(self, userinfo: Dict[str, Any]) -> models.HelmholtzUser:
         """Create a Django user for a Helmholtz AAI User."""
 
-        username = userinfo["preferred_username"]
-        email = userinfo["email"]
-
-        if self._username_exists(username):
-            username = userinfo["email"]
-        if self._email_exists(email):
-            self.permission_denied_message = (
-                f"A user with the email {email} already exists."
-            )
-            self.handle_no_permission()
-        user = models.HelmholtzUser.objects.create(
-            username=username,
-            first_name=userinfo["given_name"],
-            last_name=userinfo["family_name"],
-            email=email,
-            eduperson_unique_id=userinfo["eduperson_unique_id"],
-        )
+        user = models.HelmholtzUser.objects.create_aai_user(self.userinfo)
 
         # emit the aai_user_created signal after the user has been created
         signals.aai_user_created.send(
@@ -136,11 +171,12 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         )
         return user
 
-    def update_user(
-        self, user: models.HelmholtzUser, userinfo: Dict[str, Any]
-    ):
+    def update_user(self):
         """Update the user from the provided information."""
         to_update = {}
+
+        userinfo = self.userinfo
+        user = self.aai_user
 
         username = userinfo["preferred_username"]
         email = userinfo["email"]
@@ -153,11 +189,6 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         if user.last_name != userinfo["family_name"]:
             to_update["last_name"] = userinfo["family_name"]
         if user.email != email:
-            if self._email_exists(email):
-                self.permission_denied_message = (
-                    f"A user with the email {email} already exists."
-                )
-                self.handle_no_permission()
             to_update["email"] = email
         if to_update:
             for key, val in to_update.items():
@@ -172,24 +203,10 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                 userinfo=userinfo,
             )
 
-    def get_or_create_user(self) -> models.HelmholtzUser:
+    def synchronize_vos(self):
 
-        userinfo = self.userinfo
-
-        if not userinfo.get("preferred_username"):
-            userinfo["preferred_username"] = userinfo["email"]
-        try:
-            user = models.HelmholtzUser.objects.get(
-                eduperson_unique_id=userinfo["eduperson_unique_id"]
-            )
-        except models.HelmholtzUser.DoesNotExist:
-            user = self.create_user(userinfo)
-        else:
-            self.update_user(user, userinfo)
-
-        return user
-
-    def synchronize_vos(self, user, vos):
+        user = self.aai_user
+        vos = self.userinfo["eduperson_entitlement"]
 
         # synchronize VOs
         current_vos = user.groups.filter(
@@ -226,7 +243,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                 vo = models.HelmholtzVirtualOrganization.objects.get(
                     eduperson_entitlement=vo_name
                 )
-            except models.HelmholtzVirtualOrganization.DoesNotExist:
+            except models.HelmholtzVirtualOrganization.DoesNotExist:  # pylint: disable=no-member
                 vo = models.HelmholtzVirtualOrganization.objects.create(
                     name=vo_name, eduperson_entitlement=vo_name
                 )
