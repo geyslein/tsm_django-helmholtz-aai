@@ -134,7 +134,9 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             if self.aai_user.email != email:
                 if self._email_exists(email):
                     self.permission_denied_message = (
-                        f"A user with the email {email} already exists."
+                        f"You email in the Helmholtz AAI changed to {email}. "
+                        "A user with this email already exists and on this "
+                        "website. Please contact the website administrators."
                     )
                     return False
         elif self._email_exists(email):
