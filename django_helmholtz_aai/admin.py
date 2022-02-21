@@ -1,10 +1,11 @@
 from django.contrib import admin
+from django.contrib.auth.admin import GroupAdmin, UserAdmin
 
 from django_helmholtz_aai import models
 
 
 @admin.register(models.HelmholtzUser)
-class HelmholtzAAIUserAdmin(admin.ModelAdmin):
+class HelmholtzAAIUserAdmin(UserAdmin):
 
     list_display = (
         "username",
@@ -12,10 +13,11 @@ class HelmholtzAAIUserAdmin(admin.ModelAdmin):
         "last_name",
         "email",
         "eduperson_unique_id",
+        "is_staff",
     )
 
 
 @admin.register(models.HelmholtzVirtualOrganization)
-class HelmholtzVirtualOrganizationAdmin(admin.ModelAdmin):
+class HelmholtzVirtualOrganizationAdmin(GroupAdmin):
 
     list_display = ("name", "eduperson_entitlement")
