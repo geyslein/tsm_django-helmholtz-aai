@@ -26,9 +26,11 @@ This module defines the settings options for the ``django_helmholtz_aai`` app.
 # You should have received a copy of the EUPL-1.2 license along with this
 # program. If not, see https://www.eupl.eu/.
 
+
 from __future__ import annotations
 
 import re
+import warnings
 
 from django.conf import settings
 
@@ -61,10 +63,59 @@ HELMHOLTZ_AAI_CONF_URL = (
 )
 
 
+#: Client id for the Helmholtz AAI
+#:
+#: This is the username you use to login at
+#: https://login.helmholtz.de/oauthhome/, see
+#: https://hifis.net/doc/helmholtz-aai/howto-services/ for how to create a
+#: client
+#:
+#: See Also
+#: --------
+#: HELMHOLTZ_CLIENT_SECRET
+HELMHOLTZ_CLIENT_ID: str = getattr(settings, "HELMHOLTZ_CLIENT_ID", "")
+
+
+#: Client secret for the Helmholtz AAI
+#:
+#: This is the password you use to login at
+#: https://login.helmholtz.de/oauthhome/, see
+#: https://hifis.net/doc/helmholtz-aai/howto-services/ for how to create a
+#: client.
+#:
+#: See Also
+#: --------
+#: HELMHOLTZ_CLIENT_ID
+HELMHOLTZ_CLIENT_SECRET: str = getattr(settings, "HELMHOLTZ_CLIENT_SECRET", "")
+
+
+if not HELMHOLTZ_CLIENT_ID:
+    warnings.warn(
+        "No client ID configured for the Helmholtz AAI. The authentification "
+        "agains the Helmholtz AAI will not work! Please register a client and "
+        "specify set the username as HELMHOLTZ_CLIENT_ID in settings.py.\n"
+        "See https://hifis.net/doc/helmholtz-aai/howto-services/ for more "
+        "information."
+    )
+
+
+if not HELMHOLTZ_CLIENT_SECRET:
+    warnings.warn(
+        "No client secret configured for the Helmholtz AAI. The "
+        "authentification against the Helmholtz AAI will not work! Please "
+        "register a client and set the secret as HELMHOLTZ_CLIENT_SECRET in "
+        "settings.py.\n"
+        "See https://hifis.net/doc/helmholtz-aai/howto-services/ for more "
+        "information."
+    )
+
+
 #: Keyword argument for the oauth client to connect with the helmholtz AAI.
 #:
 #: Can also be overwritten using the :attr:`HELMHOLTZ_CLIENT_KWS` setting.
 HELMHOLTZ_CLIENT_KWS = dict(
+    client_id=HELMHOLTZ_CLIENT_ID,
+    client_secret=HELMHOLTZ_CLIENT_SECRET,
     server_metadata_url=HELMHOLTZ_AAI_CONF_URL,
     client_kwargs={"scope": "profile email eduperson_unique_id"},
 )
