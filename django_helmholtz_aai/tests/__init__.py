@@ -1,3 +1,5 @@
+"""Tests for the :mod:`django_helmholtz_aai` app.
+"""
 # Disclaimer
 # ----------
 #

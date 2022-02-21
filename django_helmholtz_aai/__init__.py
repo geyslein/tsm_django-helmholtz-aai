@@ -1,3 +1,8 @@
+"""Django Helmholtz AAI
+
+Generic Django app for connecting with the Helmholtz AAI.
+"""
+
 # Disclaimer
 # ----------
 #
@@ -19,7 +24,6 @@
 # You should have received a copy of the EUPL-1.2 license along with this
 # program. If not, see https://www.eupl.eu/.
 
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -37,7 +41,7 @@ __version__ = _version.get_versions()["version"]
 
 
 def login(request, user: models.HelmholtzUser, userinfo: dict[str, Any]):
-    """Login the django user."""
+    """Login the helmholtz user into django."""
     auth_login(request, user)
 
     # emit the aai_user_logged_in signal as an existing user has been

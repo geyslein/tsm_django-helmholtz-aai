@@ -10,6 +10,25 @@ Welcome to django-helmholtz-aai's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   api
+
+
+This small generic Django app helps you connect to the helmholtz AAI and make
+use of it's virtual organizations.
+
+Features
+--------
+Features include
+
+- ready-to-use views for authentification against the Helmholtz AAI
+- a new :class:`HelmholtzUser` class based upon djangos
+  :class:`~django.contrib.auth.models.User` model and derived from the Helmholtz AAI
+- a new :class:`HelmholtzVirtualOrganization` class based upon djangos
+  :class:`~django.contrib.auth.models.Group` model and derived from the Helmholtz AAI
+- several signals to handle the login of Helmholtz AAI user for your specific
+  application
+- automated synchronization of VOs of on user authentification
+
 
 
 Indices and tables

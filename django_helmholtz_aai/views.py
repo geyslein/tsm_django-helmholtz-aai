@@ -1,3 +1,12 @@
+"""Views
+-----
+
+Views of the django_helmholtz_aai app to be imported via the url config (see
+:mod:`django_helmholtz_aai.urls`). We define two views here: The
+:class:`HelmholtzLoginView` that redirects to the Helmholtz AAI, and the
+:class:`HelmholtzAuthentificationView` that handles the user login after
+successful login at the Helmholtz AAI.
+"""
 # Disclaimer
 # ----------
 #
@@ -62,6 +71,7 @@ class HelmholtzLoginView(LoginView):
     """A login view for the Helmholtz AAI that forwards to the OAuth login."""
 
     def get(self, request):
+        """Get the redirect URL to the Helmholtz AAI."""
         redirect_uri = request.build_absolute_uri(
             reverse("django_helmholtz_aai:auth")
         )
@@ -69,6 +79,7 @@ class HelmholtzLoginView(LoginView):
         return oauth.helmholtz.authorize_redirect(request, redirect_uri)
 
     def post(self, request):
+        """Reimplemented post method to call :meth:`get`."""
         return self.get(request)
 
 
@@ -81,15 +92,33 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
     @cached_property
     def userinfo(self) -> Dict[str, Any]:
+        """The userinfo as obtained from the Helmholtz AAI.
+
+        The attributes of this dictionary are determined by the Django
+        Helmholtz AAI [1]_
+
+        References
+        ----------
+        .. [1] https://hifis.net/doc/helmholtz-aai/attributes/
+        """
         token = oauth.helmholtz.authorize_access_token(self.request)
         return oauth.helmholtz.userinfo(request=self.request, token=token)
 
     def login_user(self, user: models.HelmholtzUser):
-        """Login the django user."""
+        """Login the Helmholtz AAI user to the Django Application.
+
+        Login is done via the top-level :func:`django_helmholtz_aai.login`
+        function."""
         aai_login(self.request, user, self.userinfo)
 
     def get(self, request):
+        """Login the Helmholtz AAI user and update the data.
 
+        This method logs in the aai user (or creates one if it does not exist
+        already). Afterwards we update the user info from the information on
+        the Helmholtz AAI using the :meth:`update_user` and
+        :meth:`synchronize_vos` methods.
+        """
         if self.is_new_user:
             self.aai_user = self.create_user(self.userinfo)
         else:
@@ -106,6 +135,10 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         return redirect(return_url)
 
     def handle_no_permission(self):
+        """Handle the response if the permission has been denied.
+
+        This reimplemented method adds the :attr:`permission_denied_message`
+        to the messages of the request using djangos messaging framework."""
         messages.add_message(
             self.request, messages.ERROR, self.permission_denied_message
         )
@@ -113,6 +146,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
     @cached_property
     def is_new_user(self) -> bool:
+        """True if the Helmholtz AAI user has never logged in before."""
         try:
             self.aai_user = models.HelmholtzUser.objects.get(
                 eduperson_unique_id=self.userinfo["eduperson_unique_id"]
@@ -123,16 +157,23 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             return False
 
     def has_permission(self) -> bool:
+        """Check if the user has permission to login.
 
+        This method checks, if the user belongs to the specified
+        :attr:`~django_helmholtz_aai.app_settings.HELMHOLTZ_ALLOWED_VOS` and
+        verifies that the email does not exist (if this is desired, see
+        :attr:`~django_helmholtz_aai.app_settings.HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED`
+        setting).
+        """
         userinfo = self.userinfo
         email = userinfo["email"]
 
         # check if the user belongs to the allowed VOs
-        if app_settings.HELMHOLTZ_ALLOWED_VOS:
+        if app_settings.HELMHOLTZ_ALLOWED_VOS_REGEXP:
             if not any(
                 patt.match(vo)
                 for patt, vo in product(
-                    app_settings.HELMHOLTZ_ALLOWED_VOS,
+                    app_settings.HELMHOLTZ_ALLOWED_VOS_REGEXP,
                     userinfo["eduperson_entitlement"],
                 )
             ):
@@ -180,7 +221,13 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         return bool(models.HelmholtzUser.objects.filter(email=email))
 
     def create_user(self, userinfo: Dict[str, Any]) -> models.HelmholtzUser:
-        """Create a Django user for a Helmholtz AAI User."""
+        """Create a Django user for a Helmholtz AAI User.
+
+        This method uses the
+        :meth:`~django_helmholtz_aai.models.HelmholtzUserManager.create_aai_user`
+        and fires the :attr:`~django_helmholtz_aai.signals.aai_user_created`
+        signal.
+        """
 
         user = models.HelmholtzUser.objects.create_aai_user(self.userinfo)
 
@@ -194,7 +241,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         return user
 
     def update_user(self):
-        """Update the user from the provided information."""
+        """Update the user from the userinfo provided by the Helmholtz AAI."""
         to_update = {}
 
         userinfo = self.userinfo
@@ -226,7 +273,23 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             )
 
     def synchronize_vos(self):
+        """Synchronize the memberships in the virtual organizations.
 
+        This method checks the ``eduperson_entitlement`` of the AAI userinfo
+        and
+
+        1. creates the missing virtual organizations
+        2. removes the user from virtual organizations that he or she does not
+           belong to anymore
+        3. adds the user to the virtual organizations that are new.
+
+        Notes
+        -----
+        As we remove users from virtual organizations, this might end up in a
+        lot of VOs without any users. One can remove these VOs via::
+
+            python manage.py remove_empty_vos
+        """
         user = self.aai_user
         vos = self.userinfo["eduperson_entitlement"]
 

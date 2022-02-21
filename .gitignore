@@ -139,4 +139,5 @@ cython_debug/
 
 static/
 
+docs/api
 dag_test/migrations/00*.py

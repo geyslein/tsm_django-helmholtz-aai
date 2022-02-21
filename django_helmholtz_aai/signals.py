@@ -1,3 +1,9 @@
+"""Signals
+-------
+
+This module defines the signals that are fired by the views in
+:mod:`django_helmholtz_aai.views` module.
+"""
 # Disclaimer
 # ----------
 #

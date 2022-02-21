@@ -1,3 +1,9 @@
+"""Admin interfaces
+----------------
+
+This module defines the django Helmholtz AAI Admin interfaces, based upon the
+interfaces from :mod:`django.contrib.auth.admin`.
+"""
 # Disclaimer
 # ----------
 #

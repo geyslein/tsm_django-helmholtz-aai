@@ -1,3 +1,9 @@
+"""Models
+======
+
+Models to mimic users and virtual organizations of the Helmholtz AAI in Django.
+"""
+
 # Disclaimer
 # ----------
 #
@@ -18,6 +24,8 @@
 #
 # You should have received a copy of the EUPL-1.2 license along with this
 # program. If not, see https://www.eupl.eu/.
+
+
 from __future__ import annotations
 
 import re
