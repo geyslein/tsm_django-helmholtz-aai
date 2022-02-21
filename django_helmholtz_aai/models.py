@@ -91,7 +91,7 @@ class HelmholtzVirtualOrganizationQuerySet(models.QuerySet):
 
 
 class HelmholtzVirtualOrganizationManager(
-    GroupManager.from_queryset(HelmholtzVirtualOrganizationQuerySet)
+    GroupManager.from_queryset(HelmholtzVirtualOrganizationQuerySet)  # type: ignore
 ):
     """Database manager for the :class:`HelmholtzVirtualOrganization` model."""
 
