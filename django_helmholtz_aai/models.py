@@ -19,7 +19,7 @@ class HelmholtzUserManager(User.objects.__class__):  # type: ignore
         username = userinfo["preferred_username"]
         email = userinfo["email"]
 
-        if self._username_exists(username):
+        if self.filter(username=username):
             username = userinfo["eduperson_unique_id"]
         user = self.create(
             username=username,

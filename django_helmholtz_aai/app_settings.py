@@ -16,4 +16,6 @@ HELMHOLTZ_CLIENT_KWS = dict(
 for key, val in getattr(settings, "HELMHOLTZ_CLIENT_KWS", {}).items():
     HELMHOLTZ_CLIENT_KWS[key] = val
 
-HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED: bool = False
+HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED: bool = getattr(
+    settings, "HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED", False
+)
