@@ -10,10 +10,14 @@ Welcome to django-helmholtz-aai's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   installation
+   configuration
+   common-problems
    api
+   contributing
 
 
-This small generic Django app helps you connect to the helmholtz AAI and make
+This small generic Django app helps you connect to the Helmholtz AAI and make
 use of it's virtual organizations.
 
 Features
@@ -28,6 +32,9 @@ Features include
 - several signals to handle the login of Helmholtz AAI user for your specific
   application
 - automated synchronization of VOs of on user authentification
+
+Get started by following the :ref:`installation instructions <installation>`
+and have a look into the :ref:`configuration`.
 
 
 

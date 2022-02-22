@@ -108,7 +108,13 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         """Login the Helmholtz AAI user to the Django Application.
 
         Login is done via the top-level :func:`django_helmholtz_aai.login`
-        function."""
+        function.
+
+        Notes
+        -----
+        Emits the :attr:`~django_helmholtz_aai.signals.aai_user_logged_in`
+        signal
+        """
         aai_login(self.request, user, self.userinfo)
 
     def get(self, request):
@@ -147,12 +153,25 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
     @cached_property
     def is_new_user(self) -> bool:
         """True if the Helmholtz AAI user has never logged in before."""
+        user_id = self.userinfo["eduperson_unique_id"]
         try:
             self.aai_user = models.HelmholtzUser.objects.get(
-                eduperson_unique_id=self.userinfo["eduperson_unique_id"]
+                eduperson_unique_id=user_id
             )
         except models.HelmholtzUser.DoesNotExist:
-            return True
+            if app_settings.HELMHOLTZ_MAP_ACCOUNTS:
+                try:
+                    user = User.objects.get(email=self.userinfo["email"])
+                except User.DoesNotExist:
+                    return True
+                else:
+                    self.aai_user = models.HelmholtzUser(
+                        user_ptr=user, eduperson_unique_id=user_id
+                    )
+                    self.aai_user.save()
+                    return False
+            else:
+                return True
         else:
             return False
 
@@ -225,8 +244,11 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
         This method uses the
         :meth:`~django_helmholtz_aai.models.HelmholtzUserManager.create_aai_user`
-        and fires the :attr:`~django_helmholtz_aai.signals.aai_user_created`
-        signal.
+        to create a new user.
+
+        Notes
+        -----
+        Emits the :attr:`~django_helmholtz_aai.signals.aai_user_created` signal
         """
 
         user = models.HelmholtzUser.objects.create_aai_user(self.userinfo)
@@ -241,17 +263,28 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         return user
 
     def update_user(self):
-        """Update the user from the userinfo provided by the Helmholtz AAI."""
+        """Update the user from the userinfo provided by the Helmholtz AAI.
+
+        Notes
+        -----
+        Emits the :attr:`~django_helmholtz_aai.signals.aai_user_updated` signal
+        """
         to_update = {}
 
         userinfo = self.userinfo
         user = self.aai_user
 
-        username = userinfo["preferred_username"]
         email = userinfo["email"]
 
-        if user.username != username and not self._username_exists(username):
-            if not User.objects.filter(username=username):
+        if app_settings.HELMHOLTZ_UPDATE_USERNAME:
+            username = next(
+                userinfo[key]
+                for key in app_settings.HELMHOLTZ_USERNAME_FIELDS
+                if userinfo.get(key)
+            )
+            if user.username != username and not self._username_exists(
+                username
+            ):
                 to_update["username"] = username
         if user.first_name != userinfo["given_name"]:
             to_update["first_name"] = userinfo["given_name"]
@@ -289,6 +322,12 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         lot of VOs without any users. One can remove these VOs via::
 
             python manage.py remove_empty_vos
+
+        Notes
+        -----
+        Emits the :attr:`~django_helmholtz_aai.signals.aai_vo_created`,
+        :attr:`~django_helmholtz_aai.signals.aai_vo_entered` and
+        :attr:`~django_helmholtz_aai.signals.aai_vo_left` signals.
         """
         user = self.aai_user
         vos = self.userinfo["eduperson_entitlement"]

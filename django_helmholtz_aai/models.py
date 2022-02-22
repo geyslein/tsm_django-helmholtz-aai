@@ -35,6 +35,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, GroupManager
 from django.db import models
 
+from django_helmholtz_aai import app_settings
+
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
 else:
@@ -47,11 +49,13 @@ class HelmholtzUserManager(User.objects.__class__):  # type: ignore
     def create_aai_user(self, userinfo):
         """Create a user from the Helmholtz AAI userinfo."""
 
-        username = userinfo["preferred_username"]
+        for field in app_settings.HELMHOLTZ_USERNAME_FIELDS:
+            username = userinfo.get(field)
+            if username and not self.filter(username=username):
+                break
+
         email = userinfo["email"]
 
-        if self.filter(username=username):
-            username = userinfo["eduperson_unique_id"]
         user = self.create(
             username=username,
             first_name=userinfo["given_name"],

@@ -6,6 +6,8 @@
 
 # -- Path setup --------------------------------------------------------------
 
+import inspect
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -13,6 +15,7 @@
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 import django
 from sphinx.ext import apidoc
@@ -57,6 +60,8 @@ extensions = [
     "autodocsumm",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinxcontrib_django",
+    "sphinxarg.ext",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -96,3 +101,24 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "django": ("https://django.readthedocs.io/en/stable/", None),
 }
+
+
+def group_models(app, what, name, obj, section, parent) -> Optional[str]:
+    """Group django models."""
+    if inspect.isclass(obj) and issubclass(obj, django.db.models.Model):
+        return "Models"
+    if (
+        inspect.isclass(parent)
+        and issubclass(parent, django.db.models.Model)
+        and any(field.name == name for field in parent._meta.fields)
+    ):
+        return "Model Fields"
+
+
+def setup(app):
+    app.connect("autodocsumm-grouper", group_models)
+    app.add_crossref_type(
+        directivename="signal",
+        rolename="signal",
+        indextemplate="pair: %s; signal",
+    )

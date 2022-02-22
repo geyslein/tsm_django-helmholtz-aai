@@ -41,7 +41,12 @@ __version__ = _version.get_versions()["version"]
 
 
 def login(request, user: models.HelmholtzUser, userinfo: dict[str, Any]):
-    """Login the helmholtz user into django."""
+    """Login the helmholtz user into django.
+
+    Notes
+    -----
+    Emits the :attr:`~django_helmholtz_aai.signals.aai_user_logged_in` signal
+    """
     auth_login(request, user)
 
     # emit the aai_user_logged_in signal as an existing user has been

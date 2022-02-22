@@ -34,12 +34,28 @@ import warnings
 
 from django.conf import settings
 
-#: A string of lists that specify which VOs are allowed to log into the
-#: website.
+#: A string of lists specifying which VOs are allowed to log into the website.
 #:
 #: By default, this is an empty list meaning that each and every user
 #: is allowed to login via the Helmholtz AAI. Each string in this list will be
 #: interpreted as a regular expression and added to :attr:`HELMHOLTZ_ALLOWED_VOS_REGEXP`
+#:
+#: .. setting:: HELMHOLTZ_ALLOWED_VOS
+#:
+#: Examples
+#: --------
+#: Assume you only want to allow people from the Hereon VO to login to the
+#: website. Then you can add the following to your ``settings.py``::
+#:
+#:     HELMHOLTZ_ALLOWED_VOS = [
+#:         "urn:geant:helmholtz.de:group:hereon#login.helmholtz.de",
+#:     ]
+#:
+#: or use a regex, e.g. something like::
+#:
+#:     HELMHOLTZ_ALLOWED_VOS = [
+#:         r".*helmholtz.de:group:hereon#login.helmholtz.de",
+#:     ]
 HELMHOLTZ_ALLOWED_VOS: list[str] = getattr(
     settings, "HELMHOLTZ_ALLOWED_VOS", []
 )
@@ -47,6 +63,8 @@ HELMHOLTZ_ALLOWED_VOS: list[str] = getattr(
 #: Regular expressions for VOs that are allowed to login to the website.
 #:
 #: This attribute is created from the :attr:`HELMHOLTZ_ALLOWED_VOS` setting.
+#:
+#: .. setting:: HELMHOLTZ_ALLOWED_VOS_REGEXP
 HELMHOLTZ_ALLOWED_VOS_REGEXP: list[re.Pattern] = getattr(
     settings, "HELMHOLTZ_ALLOWED_VOS_REGEXP", []
 )
@@ -58,6 +76,8 @@ HELMHOLTZ_ALLOWED_VOS_REGEXP.extend(
 #: openid configuration url of the Helmholtz AAI
 #:
 #: Can also be overwritten using the :attr:`HELMHOLTZ_CLIENT_KWS` setting.
+#:
+#: .. setting:: HELMHOLTZ_AAI_CONF_URL
 HELMHOLTZ_AAI_CONF_URL = (
     "https://login.helmholtz.de/oauth2/.well-known/openid-configuration"
 )
@@ -66,9 +86,10 @@ HELMHOLTZ_AAI_CONF_URL = (
 #: Client id for the Helmholtz AAI
 #:
 #: This is the username you use to login at
-#: https://login.helmholtz.de/oauthhome/, see
-#: https://hifis.net/doc/helmholtz-aai/howto-services/ for how to create a
-#: client
+#: https://login.helmholtz.de/oauthhome/, see [client-registration]_ for how to
+#: create a client
+#:
+#: .. setting:: HELMHOLTZ_CLIENT_ID
 #:
 #: See Also
 #: --------
@@ -79,9 +100,10 @@ HELMHOLTZ_CLIENT_ID: str = getattr(settings, "HELMHOLTZ_CLIENT_ID", "")
 #: Client secret for the Helmholtz AAI
 #:
 #: This is the password you use to login at
-#: https://login.helmholtz.de/oauthhome/, see
-#: https://hifis.net/doc/helmholtz-aai/howto-services/ for how to create a
-#: client.
+#: https://login.helmholtz.de/oauthhome/, see[client-registration]_ for how to
+#: create a client
+#:
+#: .. setting:: HELMHOLTZ_CLIENT_SECRET
 #:
 #: See Also
 #: --------
@@ -113,6 +135,8 @@ if not HELMHOLTZ_CLIENT_SECRET:
 #: Keyword argument for the oauth client to connect with the helmholtz AAI.
 #:
 #: Can also be overwritten using the :attr:`HELMHOLTZ_CLIENT_KWS` setting.
+#:
+#: .. setting:: HELMHOLTZ_CLIENT_KWS
 HELMHOLTZ_CLIENT_KWS = dict(
     client_id=HELMHOLTZ_CLIENT_ID,
     client_secret=HELMHOLTZ_CLIENT_SECRET,
@@ -130,6 +154,70 @@ for key, val in getattr(settings, "HELMHOLTZ_CLIENT_KWS", {}).items():
 #: in the Django application. This option prevents a user to create an account
 #: if the email has already been taken by some other user from the Helmholtz
 #: AAI
+#:
+#: .. setting:: HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED
 HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED: bool = getattr(
     settings, "HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED", False
+)
+
+
+#: Username fields in the userinfo
+#:
+#: This setting determines how to get the username. By default, we use the
+#: ``preferred_username`` that the user can configure at
+#: https://login.helmholtz.de/oauthhome. If this is already taken, we use the
+#: unique ``eduperson_unique_id`` from the Helmholtz AAI. You can add more
+#: variables to this list but you should always include the
+#: ``eduperson_unique_id`` to make sure you do not end up with duplicated
+#: usernames.
+#:
+#: .. setting:: HELMHOLTZ_USERNAME_FIELDS
+#:
+#: Examples
+#: --------
+#: You can use the email instead of the ``preferred_username`` via::
+#:
+#:     HELMHOLTZ_USERNAME_FIELDS = ["email", "eduperson_unique_id"]
+HELMHOLTZ_USERNAME_FIELDS: list[str] = getattr(
+    settings,
+    "HELMHOLTZ_USERNAME_FIELDS",
+    ["preferred_username", "eduperson_unique_id"],
+)
+
+
+#: Flag whether usernames should be updated from the Helmholtz AAI
+#:
+#: Use this setting to control, whether the usernames are updated automatically
+#: on every login. If this is true, we will check the fields specified in the
+#: :attr:`HELMHOLTZ_USERNAME_FIELDS` setting variable on every login and update
+#: the username accordingly. If the user, for instance, changes his or her
+#: ``preferred_username`` on https://login.helmholtz.de/, we will update the
+#: username of the django user as well (if ``preferred_username`` is in the
+#: :attr:`HELMHOLTZ_USERNAME_FIELDS`).
+#:
+#: .. setting:: HELMHOLTZ_UPDATE_USERNAME
+HELMHOLTZ_UPDATE_USERNAME: bool = getattr(
+    settings, "HELMHOLTZ_UPDATE_USERNAMES", True
+)
+
+
+#: Flag whether existing user accounts should be mapped
+#:
+#: Use this flag, if you want to map existing user accounts by their email
+#: address.
+#:
+#: ..setting:: HELMHOLTZ_MAP_ACCOUNTS
+#:
+#: Examples
+#: --------
+#: Suppose you just install django-helmholtz-aai to your already existing
+#: Django project and there exists already a user with the mail
+#: ``user@example.com``. If this user now logs into your project, it would
+#: create a new :class:`~django_helmholtz_aai.models.HelmholtzUser` which is
+#: probably not desired. To overcome this, you can set the
+#: :setting:`HELMHOLTZ_MAP_ACCOUNTS` configuration variable to ``True`` and the
+#: :class:`~django_helmholtz_aai.models.HelmholtzUser` will be mapped to the
+#: already existing :class:`~django.contrib.auth.models.User`
+HELMHOLTZ_MAP_ACCOUNTS: bool = getattr(
+    settings, "HELMHOLTZ_MAP_ACCOUNTS", False
 )
