@@ -39,6 +39,16 @@ if TYPE_CHECKING:
 
 __version__ = _version.get_versions()["version"]
 
+__author__ = "Phiilpp S. Sommer, Housam Dibeh, Hatef Takyar"
+__copyright__ = "Copyright (C) 2022 Helmholtz-Zentrum Hereon"
+__credits__ = ["Philipp S. Sommer", "Housam Dibeh", "Hatef Takyar"]
+__license__ = "EUPL-1.2"
+
+__maintainer__ = "Helmholtz Coastal Data Center"
+__email__ = "hcdc_support@hereon.de"
+
+__status__ = "Production"
+
 
 def login(request, user: models.HelmholtzUser, userinfo: dict[str, Any]):
     """Login the helmholtz user into django.
