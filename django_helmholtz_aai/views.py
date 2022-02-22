@@ -1,3 +1,12 @@
+"""Views
+-----
+
+Views of the django_helmholtz_aai app to be imported via the url config (see
+:mod:`django_helmholtz_aai.urls`). We define two views here: The
+:class:`HelmholtzLoginView` that redirects to the Helmholtz AAI, and the
+:class:`HelmholtzAuthentificationView` that handles the user login after
+successful login at the Helmholtz AAI.
+"""
 # Disclaimer
 # ----------
 #
@@ -62,6 +71,7 @@ class HelmholtzLoginView(LoginView):
     """A login view for the Helmholtz AAI that forwards to the OAuth login."""
 
     def get(self, request):
+        """Get the redirect URL to the Helmholtz AAI."""
         redirect_uri = request.build_absolute_uri(
             reverse("django_helmholtz_aai:auth")
         )
@@ -69,6 +79,7 @@ class HelmholtzLoginView(LoginView):
         return oauth.helmholtz.authorize_redirect(request, redirect_uri)
 
     def post(self, request):
+        """Reimplemented post method to call :meth:`get`."""
         return self.get(request)
 
 
@@ -81,15 +92,39 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
     @cached_property
     def userinfo(self) -> Dict[str, Any]:
+        """The userinfo as obtained from the Helmholtz AAI.
+
+        The attributes of this dictionary are determined by the Django
+        Helmholtz AAI [1]_
+
+        References
+        ----------
+        .. [1] https://hifis.net/doc/helmholtz-aai/attributes/
+        """
         token = oauth.helmholtz.authorize_access_token(self.request)
         return oauth.helmholtz.userinfo(request=self.request, token=token)
 
     def login_user(self, user: models.HelmholtzUser):
-        """Login the django user."""
+        """Login the Helmholtz AAI user to the Django Application.
+
+        Login is done via the top-level :func:`django_helmholtz_aai.login`
+        function.
+
+        Notes
+        -----
+        Emits the :attr:`~django_helmholtz_aai.signals.aai_user_logged_in`
+        signal
+        """
         aai_login(self.request, user, self.userinfo)
 
     def get(self, request):
+        """Login the Helmholtz AAI user and update the data.
 
+        This method logs in the aai user (or creates one if it does not exist
+        already). Afterwards we update the user info from the information on
+        the Helmholtz AAI using the :meth:`update_user` and
+        :meth:`synchronize_vos` methods.
+        """
         if self.is_new_user:
             self.aai_user = self.create_user(self.userinfo)
         else:
@@ -106,6 +141,10 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         return redirect(return_url)
 
     def handle_no_permission(self):
+        """Handle the response if the permission has been denied.
+
+        This reimplemented method adds the :attr:`permission_denied_message`
+        to the messages of the request using djangos messaging framework."""
         messages.add_message(
             self.request, messages.ERROR, self.permission_denied_message
         )
@@ -113,26 +152,47 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
     @cached_property
     def is_new_user(self) -> bool:
+        """True if the Helmholtz AAI user has never logged in before."""
+        user_id = self.userinfo["eduperson_unique_id"]
         try:
             self.aai_user = models.HelmholtzUser.objects.get(
-                eduperson_unique_id=self.userinfo["eduperson_unique_id"]
+                eduperson_unique_id=user_id
             )
         except models.HelmholtzUser.DoesNotExist:
-            return True
+            if app_settings.HELMHOLTZ_MAP_ACCOUNTS:
+                try:
+                    user = User.objects.get(email=self.userinfo["email"])
+                except User.DoesNotExist:
+                    return True
+                else:
+                    self.aai_user = models.HelmholtzUser(
+                        user_ptr=user, eduperson_unique_id=user_id
+                    )
+                    self.aai_user.save()
+                    return False
+            else:
+                return True
         else:
             return False
 
     def has_permission(self) -> bool:
+        """Check if the user has permission to login.
 
+        This method checks, if the user belongs to the specified
+        :attr:`~django_helmholtz_aai.app_settings.HELMHOLTZ_ALLOWED_VOS` and
+        verifies that the email does not exist (if this is desired, see
+        :attr:`~django_helmholtz_aai.app_settings.HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED`
+        setting).
+        """
         userinfo = self.userinfo
         email = userinfo["email"]
 
         # check if the user belongs to the allowed VOs
-        if app_settings.HELMHOLTZ_ALLOWED_VOS:
+        if app_settings.HELMHOLTZ_ALLOWED_VOS_REGEXP:
             if not any(
                 patt.match(vo)
                 for patt, vo in product(
-                    app_settings.HELMHOLTZ_ALLOWED_VOS,
+                    app_settings.HELMHOLTZ_ALLOWED_VOS_REGEXP,
                     userinfo["eduperson_entitlement"],
                 )
             ):
@@ -180,7 +240,16 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         return bool(models.HelmholtzUser.objects.filter(email=email))
 
     def create_user(self, userinfo: Dict[str, Any]) -> models.HelmholtzUser:
-        """Create a Django user for a Helmholtz AAI User."""
+        """Create a Django user for a Helmholtz AAI User.
+
+        This method uses the
+        :meth:`~django_helmholtz_aai.models.HelmholtzUserManager.create_aai_user`
+        to create a new user.
+
+        Notes
+        -----
+        Emits the :attr:`~django_helmholtz_aai.signals.aai_user_created` signal
+        """
 
         user = models.HelmholtzUser.objects.create_aai_user(self.userinfo)
 
@@ -194,17 +263,28 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         return user
 
     def update_user(self):
-        """Update the user from the provided information."""
+        """Update the user from the userinfo provided by the Helmholtz AAI.
+
+        Notes
+        -----
+        Emits the :attr:`~django_helmholtz_aai.signals.aai_user_updated` signal
+        """
         to_update = {}
 
         userinfo = self.userinfo
         user = self.aai_user
 
-        username = userinfo["preferred_username"]
         email = userinfo["email"]
 
-        if user.username != username and not self._username_exists(username):
-            if not User.objects.filter(username=username):
+        if app_settings.HELMHOLTZ_UPDATE_USERNAME:
+            username = next(
+                userinfo[key]
+                for key in app_settings.HELMHOLTZ_USERNAME_FIELDS
+                if userinfo.get(key)
+            )
+            if user.username != username and not self._username_exists(
+                username
+            ):
                 to_update["username"] = username
         if user.first_name != userinfo["given_name"]:
             to_update["first_name"] = userinfo["given_name"]
@@ -226,7 +306,29 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             )
 
     def synchronize_vos(self):
+        """Synchronize the memberships in the virtual organizations.
 
+        This method checks the ``eduperson_entitlement`` of the AAI userinfo
+        and
+
+        1. creates the missing virtual organizations
+        2. removes the user from virtual organizations that he or she does not
+           belong to anymore
+        3. adds the user to the virtual organizations that are new.
+
+        Notes
+        -----
+        As we remove users from virtual organizations, this might end up in a
+        lot of VOs without any users. One can remove these VOs via::
+
+            python manage.py remove_empty_vos
+
+        Notes
+        -----
+        Emits the :attr:`~django_helmholtz_aai.signals.aai_vo_created`,
+        :attr:`~django_helmholtz_aai.signals.aai_vo_entered` and
+        :attr:`~django_helmholtz_aai.signals.aai_vo_left` signals.
+        """
         user = self.aai_user
         vos = self.userinfo["eduperson_entitlement"]
 

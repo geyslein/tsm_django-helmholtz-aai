@@ -141,9 +141,5 @@ STATIC_ROOT = BASE_DIR / "static"
 
 HELMHOLTZ_ALLOWED_VOS: list[str] = []
 
-AUTHLIB_OAUTH_CLIENTS = {
-    "helmholtz": {
-        "client_id": os.getenv("HELMHOLTZ_CLIENT_ID"),
-        "client_secret": os.getenv("HELMHOLTZ_CLIENT_SECRET"),
-    },
-}
+HELMHOLTZ_CLIENT_ID = os.getenv("HELMHOLTZ_CLIENT_ID")
+HELMHOLTZ_CLIENT_SECRET = os.getenv("HELMHOLTZ_CLIENT_SECRET")

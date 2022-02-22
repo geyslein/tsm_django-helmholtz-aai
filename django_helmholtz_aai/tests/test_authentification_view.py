@@ -1,3 +1,9 @@
+"""Test for the Helmholtz Authentification View
+-----------------------------------------------
+
+This module defines unittests for the
+:class:`django_helmholtz_aai.views.HelmholtzAuthentificationView` class.
+"""
 # Disclaimer
 # ----------
 #
@@ -266,15 +272,17 @@ def test_allowed_vos(
     """Test login with HELMHOLTZ_ALLOWED_VOS."""
     test_basic_get(authentification_view, username)
 
-    HELMHOLTZ_ALLOWED_VOS = [re.compile(r".*not_available.*")]
+    HELMHOLTZ_ALLOWED_VOS_REGEXP = [re.compile(r".*not_available.*")]
 
     monkeypatch.setattr(
-        app_settings, "HELMHOLTZ_ALLOWED_VOS", HELMHOLTZ_ALLOWED_VOS
+        app_settings,
+        "HELMHOLTZ_ALLOWED_VOS_REGEXP",
+        HELMHOLTZ_ALLOWED_VOS_REGEXP,
     )
 
     with pytest.raises(PermissionDenied):
         test_basic_get(authentification_view, username)
 
-    HELMHOLTZ_ALLOWED_VOS.append(re.compile(r".*:group:some_VO#.*"))
+    HELMHOLTZ_ALLOWED_VOS_REGEXP.append(re.compile(r".*:group:some_VO#.*"))
 
     test_basic_get(authentification_view, username)

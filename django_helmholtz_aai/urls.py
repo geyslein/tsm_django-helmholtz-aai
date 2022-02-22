@@ -1,3 +1,15 @@
+"""URL config
+----------
+
+URL patterns of the django-helmholtz-aai to be included via::
+
+    from django.urls import include, path
+
+    urlpatters = [
+        path("helmholtz-aai/", include("django_helmholtz_aai.urls")),
+    ]
+"""
+
 # Disclaimer
 # ----------
 #
@@ -24,11 +36,12 @@ from django.urls import path
 
 from django_helmholtz_aai import views
 
+#: App name for the django-helmholtz-aai to be used in calls to
+#: :func:`django.urls.reverse`
 app_name = "django_helmholtz_aai"
 
+#: urlpattern for the Helmholtz AAI
 urlpatterns = [
-    # path('', views.home),
     path("login/", views.HelmholtzLoginView.as_view(), name="login"),
     path("auth/", views.HelmholtzAuthentificationView.as_view(), name="auth"),
-    # path('logout/', views.logout),
 ]

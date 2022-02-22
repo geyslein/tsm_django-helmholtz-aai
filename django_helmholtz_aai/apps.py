@@ -1,3 +1,9 @@
+"""App config
+----------
+
+App config for the django_helmholtz_aai app.
+"""
+
 # Disclaimer
 # ----------
 #
