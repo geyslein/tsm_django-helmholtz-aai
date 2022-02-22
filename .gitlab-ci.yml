@@ -13,7 +13,8 @@ before_script:
     apk add --update --no-cache \
     ttf-freefont gcc musl-dev g++ libxslt-dev \
     libressl-dev libffi-dev \
-    libxml2 libxslt jpeg-dev zlib-dev
+    libxml2 libxslt jpeg-dev zlib-dev \
+    make cmake
   - python -V  # Print out python version for debugging
   - python -m venv venv
   - source venv/bin/activate
