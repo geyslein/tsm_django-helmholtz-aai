@@ -42,6 +42,7 @@ from django_helmholtz_aai import app_settings, models, signals
 from django_helmholtz_aai.views import HelmholtzAuthentificationView
 
 if TYPE_CHECKING:
+    from django.contrib.auth.models import User
     from django.test import RequestFactory
 
 
@@ -187,6 +188,7 @@ def test_change_username(
     username: str,
     userinfo: dict[str, Any],
     patched_signals: list[str],
+    monkeypatch,
 ):
     """Test what happens if the username changes."""
     test_basic_get(authentification_view, username)
@@ -196,6 +198,32 @@ def test_change_username(
     test_basic_get(authentification_view, "max.mustermann")
 
     assert patched_signals[-2:] == ["aai_user_updated", "aai_user_logged_in"]
+
+    # now test if we can prevent changing the username
+    monkeypatch.setattr(
+        app_settings,
+        "HELMHOLTZ_UPDATE_USERNAME",
+        False,
+    )
+
+    userinfo["preferred_username"] = "newusername"
+
+    test_basic_get(authentification_view, "max.mustermann")
+
+
+def test_helmholtz_username_fields(
+    authentification_view: PatchedHelmholtzAuthentificationView,
+    userinfo: dict[str, Any],
+    monkeypatch,
+):
+    """Test changing the username fields."""
+    monkeypatch.setattr(
+        app_settings,
+        "HELMHOLTZ_USERNAME_FIELDS",
+        ["email", "eduperson_unique_id"],
+    )
+
+    test_basic_get(authentification_view, userinfo["email"])
 
 
 def test_change_email(
@@ -266,7 +294,7 @@ def test_change_vo(
 def test_allowed_vos(
     authentification_view: PatchedHelmholtzAuthentificationView,
     username: str,
-    userinfo: str,
+    userinfo: dict[str, Any],
     monkeypatch,
 ):
     """Test login with HELMHOLTZ_ALLOWED_VOS."""
@@ -286,3 +314,45 @@ def test_allowed_vos(
     HELMHOLTZ_ALLOWED_VOS_REGEXP.append(re.compile(r".*:group:some_VO#.*"))
 
     test_basic_get(authentification_view, username)
+
+
+def test_helmholtz_map_accounts(
+    authentification_view: PatchedHelmholtzAuthentificationView,
+    username: str,
+    userinfo: dict[str, Any],
+    admin_user: User,
+    monkeypatch,
+):
+    """Test login with HELMHOLTZ_MAP_ACCOUNTS."""
+
+    admin_user.email = userinfo["email"]
+    admin_user.save()
+
+    monkeypatch.setattr(
+        app_settings,
+        "HELMHOLTZ_MAP_ACCOUNTS",
+        True,
+    )
+
+    test_basic_get(authentification_view, username)
+
+    new_user = models.HelmholtzUser.objects.get(username=username)
+    assert new_user.pk == admin_user.pk
+
+
+def test_helmholtz_create_users(
+    authentification_view: PatchedHelmholtzAuthentificationView,
+    username: str,
+    userinfo: dict[str, Any],
+    monkeypatch,
+):
+    """Test preventing the creation of new users."""
+
+    monkeypatch.setattr(
+        app_settings,
+        "HELMHOLTZ_CREATE_USERS",
+        False,
+    )
+
+    with pytest.raises(PermissionDenied):
+        test_basic_get(authentification_view, username)

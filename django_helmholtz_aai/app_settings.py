@@ -221,3 +221,17 @@ HELMHOLTZ_UPDATE_USERNAME: bool = getattr(
 HELMHOLTZ_MAP_ACCOUNTS: bool = getattr(
     settings, "HELMHOLTZ_MAP_ACCOUNTS", False
 )
+
+#: Flag to enable/disable user account creation via the Helmholtz AAI.
+#:
+#: Use this flag if you want the Helmholtz AAI to create users when they login
+#: for the first time. This is enabled by default.
+#:
+#: If you disable this setting, you should enable the
+#: :setting:`HELMHOLTZ_MAP_ACCOUNTS`, otherwise nobody will be allowed to
+#: login via the Helmholtz AAI.
+#:
+#: .. setting:: HELMHOLTZ_CREATE_USERS
+HELMHOLTZ_CREATE_USERS: bool = getattr(
+    settings, "HELMHOLTZ_CREATE_USERS", True
+)
