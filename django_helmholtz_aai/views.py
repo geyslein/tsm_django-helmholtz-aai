@@ -32,6 +32,7 @@ successful login at the Helmholtz AAI.
 from __future__ import annotations
 
 import re
+from enum import Enum
 from itertools import product
 from typing import Any, Dict
 
@@ -86,9 +87,59 @@ class HelmholtzLoginView(LoginView):
 class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
     """Authentification view for the Helmholtz AAI."""
 
-    _permission_denied: bool = False
-
     aai_user: models.HelmholtzUser
+
+    class PermissionDeniedReasons(str, Enum):
+        """Reasons why permissions are denied to login."""
+
+        #: the virtual organization is not part of
+        #: :setting:`HELMHOLTZ_ALLOWED_VOS_REGEXP`
+        vo_not_allowed = "vo_not_allowed"
+
+        #: the email has not yet been verified
+        email_not_verified = "email_not_verified"
+
+        #: the email changed and is already taken on the website
+        email_changed_and_taken = "email_changed_and_taken"
+
+        #: the user is new and user creation is disabled by
+        #: :setting:`HELMHOLTZ_CREATE_USERS`
+        new_user = "new_user"
+
+        #: the user is new and the email already exists
+        email_exists = "email_exists"
+
+    #: The reason why the user cannot login.
+    #:
+    #: This attribute is set via the :meth:`has_permission` method
+    permission_denied_reason: PermissionDeniedReasons
+
+    #: Message templates that explain why a user is not allowed to login.
+    #:
+    #: via the Helmholtz AAI. Use in the :meth:`get_permission_denied_message`
+    #: method.
+    permission_denied_message_templates: dict[PermissionDeniedReasons, str] = {
+        PermissionDeniedReasons.vo_not_allowed: (
+            "Your virtual organizations are not allowed to log into "
+            "this website."
+        ),
+        PermissionDeniedReasons.email_not_verified: (
+            "Your email has not been verified."
+        ),
+        PermissionDeniedReasons.email_changed_and_taken: (
+            "You email in the Helmholtz AAI changed to {email}. "
+            "A user with this email already exists and on this "
+            "website. Please contact the website administrators."
+        ),
+        PermissionDeniedReasons.new_user: (
+            "Your email {email} does not yet have a user account on this "
+            "website and the account creation is disabled. Please sign up or "
+            "contact the website administrators."
+        ),
+        PermissionDeniedReasons.email_exists: (
+            "A user with the email {email} already exists."
+        ),
+    }
 
     @cached_property
     def userinfo(self) -> Dict[str, Any]:
@@ -146,7 +197,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         This reimplemented method adds the :attr:`permission_denied_message`
         to the messages of the request using djangos messaging framework."""
         messages.add_message(
-            self.request, messages.ERROR, self.permission_denied_message
+            self.request, messages.ERROR, self.get_permission_denied_message()
         )
         return super().handle_no_permission()
 
@@ -187,6 +238,8 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         userinfo = self.userinfo
         email = userinfo["email"]
 
+        reasons = self.PermissionDeniedReasons
+
         # check if the user belongs to the allowed VOs
         if app_settings.HELMHOLTZ_ALLOWED_VOS_REGEXP:
             if not any(
@@ -196,17 +249,12 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                     userinfo["eduperson_entitlement"],
                 )
             ):
-                self.permission_denied_message = (
-                    "Your virtual organizations are not allowed to log into "
-                    "this website."
-                )
+                self.permission_denied_reason = reasons.vo_not_allowed
                 return False
 
         # check for email verification
         if not userinfo["email_verified"]:
-            self.permission_denied_message = (
-                "Your email has not been verified."
-            )
+            self.permission_denied_reason = reasons.email_not_verified
             return False
 
         # check for email duplicates
@@ -215,19 +263,27 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             # is possible
             if self.aai_user.email != email:
                 if self._email_exists(email):
-                    self.permission_denied_message = (
-                        f"You email in the Helmholtz AAI changed to {email}. "
-                        "A user with this email already exists and on this "
-                        "website. Please contact the website administrators."
+                    self.permission_denied_reason = (
+                        reasons.email_changed_and_taken
                     )
                     return False
+        elif self.is_new_user and not app_settings.HELMHOLTZ_CREATE_USERS:
+            self.permission_denied_reason = reasons.new_user
+            return False
         elif self._email_exists(email):
-            self.permission_denied_message = (
-                f"A user with the email {email} already exists."
-            )
+            self.permission_denied_reason = reasons.email_exists
             return False
 
         return True
+
+    def get_permission_denied_message(self):
+        """Get the permission denied message for a specific reason.
+
+        This method is called by the super-classes :meth:`handle_no_permission`
+        method."""
+        templates = self.permission_denied_message_templates
+        key = self.permission_denied_reason
+        return templates[key].format(**self.userinfo)
 
     @staticmethod
     def _username_exists(username: str):
