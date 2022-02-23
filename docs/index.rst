@@ -6,16 +6,6 @@
 Welcome to django-helmholtz-aai's documentation!
 ================================================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   installation
-   configuration
-   common-problems
-   api
-   contributing
-
 
 This small generic Django app helps you connect to the Helmholtz AAI and make
 use of it's virtual organizations.
@@ -35,6 +25,16 @@ Features include
 
 Get started by following the :ref:`installation instructions <installation>`
 and have a look into the :ref:`configuration`.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   installation
+   configuration
+   common-problems
+   api
+   contributing
 
 
 
