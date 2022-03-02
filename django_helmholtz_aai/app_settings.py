@@ -197,7 +197,7 @@ HELMHOLTZ_USERNAME_FIELDS: list[str] = getattr(
 #:
 #: .. setting:: HELMHOLTZ_UPDATE_USERNAME
 HELMHOLTZ_UPDATE_USERNAME: bool = getattr(
-    settings, "HELMHOLTZ_UPDATE_USERNAMES", True
+    settings, "HELMHOLTZ_UPDATE_USERNAME", True
 )
 
 

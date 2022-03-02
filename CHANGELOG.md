@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.4: Use correct setting variable for HELMHOLTZ_UPDATE_USERNAME
+
+This patch corrects a minor issue where the HELMHOLTZ_UPDATE_USERNAME has not
+been read correctly from the django settings.
+
 ## v0.1.3: Use case-insensitive check for email
 
 This patch compares emails case-insensitive, see
