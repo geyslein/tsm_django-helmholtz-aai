@@ -109,6 +109,9 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         #: the user is new and the email already exists
         email_exists = "email_exists"
 
+        #: a user with the given email could not be found
+        cannot_find_user = "cannot_find_user"
+
     #: The reason why the user cannot login.
     #:
     #: This attribute is set via the :meth:`has_permission` method
@@ -138,6 +141,11 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         ),
         PermissionDeniedReasons.email_exists: (
             "A user with the email {email} already exists."
+        ),
+        PermissionDeniedReasons.cannot_find_user: (
+            "A user with the email {email} is not available on this "
+            "website and the account creation is disabled. Please sign up or "
+            "contact the website administrators."
         ),
     }
 
@@ -270,7 +278,10 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                     )
                     return False
         elif self.is_new_user and not app_settings.HELMHOLTZ_CREATE_USERS:
-            self.permission_denied_reason = reasons.new_user
+            if app_settings.HELMHOLTZ_MAP_ACCOUNTS:
+                self.permission_denied_reason = reasons.cannot_find_user
+            else:
+                self.permission_denied_reason = reasons.new_user
             return False
         elif self._email_exists(email):
             self.permission_denied_reason = reasons.email_exists
