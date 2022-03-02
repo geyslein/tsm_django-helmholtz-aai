@@ -234,6 +234,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                     self.aai_user = models.HelmholtzUser(
                         user_ptr=user, eduperson_unique_id=user_id, **fields
                     )
+                    self.aai_user.save()
                     return False
             else:
                 return True
