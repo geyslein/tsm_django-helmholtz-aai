@@ -137,7 +137,9 @@ class HelmholtzVirtualOrganization(Group):
 
     @property
     def display_name(self) -> str:
-        return self.name.split(":group:", maxsplit=1)[1]
+        if self.name == self.eduperson_entitlement:
+            return self.name.split(":group:", maxsplit=1)[1]
+        return super().__str__()
 
     def __str__(self) -> str:
         return self.display_name
