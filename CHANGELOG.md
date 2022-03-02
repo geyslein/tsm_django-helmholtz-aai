@@ -1,8 +1,14 @@
 # Changelog
 
+## v0.1.5: Patch for HELHOLTZ_MAP_ACCOUNTS and Group names
+
+This patch makes sure that the attributes persist when a user is mapped with
+`HELMHOLTZ_MAP_ACCOUNTS`, and it only changes the display name if it changed
+compared to the Helmholtz AAI identifier.
+
 ## v0.1.4: Use correct setting variable for HELMHOLTZ_UPDATE_USERNAME
 
-This patch corrects a minor issue where the HELMHOLTZ_UPDATE_USERNAME has not
+This patch corrects a minor issue where the `HELMHOLTZ_UPDATE_USERNAME` has not
 been read correctly from the django settings.
 
 ## v0.1.3: Use case-insensitive check for email
