@@ -206,7 +206,7 @@ HELMHOLTZ_UPDATE_USERNAME: bool = getattr(
 #: Use this flag, if you want to map existing user accounts by their email
 #: address.
 #:
-#: ..setting:: HELMHOLTZ_MAP_ACCOUNTS
+#: .. setting:: HELMHOLTZ_MAP_ACCOUNTS
 #:
 #: Examples
 #: --------
