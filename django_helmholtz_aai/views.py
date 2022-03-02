@@ -212,7 +212,9 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         except models.HelmholtzUser.DoesNotExist:
             if app_settings.HELMHOLTZ_MAP_ACCOUNTS:
                 try:
-                    user = User.objects.get(email=self.userinfo["email"])
+                    user = User.objects.get(
+                        email__iexact=self.userinfo["email"]
+                    )
                 except User.DoesNotExist:
                     return True
                 else:
@@ -293,7 +295,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
     def _email_exists(email: str) -> bool:
         if app_settings.HELMHOLTZ_EMAIL_DUPLICATES_ALLOWED:
             return False
-        return bool(models.HelmholtzUser.objects.filter(email=email))
+        return bool(models.HelmholtzUser.objects.filter(email__iexact=email))
 
     def create_user(self, userinfo: Dict[str, Any]) -> models.HelmholtzUser:
         """Create a Django user for a Helmholtz AAI User.
