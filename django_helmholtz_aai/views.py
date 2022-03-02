@@ -226,10 +226,14 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                 except User.DoesNotExist:
                     return True
                 else:
+                    fields = {
+                        f.name: getattr(user, f.name)
+                        for f in User._meta.fields
+                        if not f.many_to_many
+                    }
                     self.aai_user = models.HelmholtzUser(
-                        user_ptr=user, eduperson_unique_id=user_id
+                        user_ptr=user, eduperson_unique_id=user_id, **fields
                     )
-                    self.aai_user.save()
                     return False
             else:
                 return True
