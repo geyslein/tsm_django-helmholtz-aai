@@ -48,4 +48,9 @@ class HelmholtzAAIUserAdmin(UserAdmin):
 @admin.register(models.HelmholtzVirtualOrganization)
 class HelmholtzVirtualOrganizationAdmin(GroupAdmin):
 
-    list_display = ("name", "eduperson_entitlement")
+    list_display = ("name", "eduperson_entitlement", "users")
+
+    search_fields = ["name", "eduperson_entitlement"]
+
+    def users(self, obj: models.HelmholtzVirtualOrganization):
+        return str(obj.user_set.count())
