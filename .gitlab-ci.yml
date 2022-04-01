@@ -20,6 +20,13 @@ before_script:
   - source venv/bin/activate
   - python -m pip install -U pip
 
+build-pkg:
+  script:
+    - pip install twine wheel
+    - python setup.py sdist bdist_wheel
+    - twine check dist/*
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+
 test:
   script:
     - pip install tox .[testsite]
