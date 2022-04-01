@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.6: Add HELMHOLTZ_USER_BACKEND config parameter
+
+This patch adds the possibility to specify the backend that is used for login
+(necessary if you use multiple backends, with `django-guardian` for instance).
+
+Furthermore, we apply a small fix that makes it possible to change the group
+name of VOs.
+
 ## v0.1.5: Patch for HELHOLTZ_MAP_ACCOUNTS and Group names
 
 This patch makes sure that the attributes persist when a user is mapped with
