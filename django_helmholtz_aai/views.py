@@ -174,6 +174,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         Emits the :attr:`~django_helmholtz_aai.signals.aai_user_logged_in`
         signal
         """
+        user.backend = app_settings.HELMHOLTZ_USER_BACKEND  # type: ignore
         aai_login(self.request, user, self.userinfo)
 
     def get(self, request):

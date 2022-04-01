@@ -139,7 +139,7 @@ class HelmholtzVirtualOrganization(Group):
     def display_name(self) -> str:
         if self.name == self.eduperson_entitlement:
             return self.name.split(":group:", maxsplit=1)[1]
-        return super().__str__()
+        return _cached_group_str(self)
 
     def __str__(self) -> str:
         return self.display_name
@@ -149,6 +149,9 @@ def _display_group_name(self):
     if hasattr(self, "helmholtzvirtualorganization"):
         return self.helmholtzvirtualorganization.display_name
     return self.name
+
+
+_cached_group_str = Group.__str__
 
 
 Group.add_to_class("__str__", _display_group_name)

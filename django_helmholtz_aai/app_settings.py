@@ -235,3 +235,11 @@ HELMHOLTZ_MAP_ACCOUNTS: bool = getattr(
 HELMHOLTZ_CREATE_USERS: bool = getattr(
     settings, "HELMHOLTZ_CREATE_USERS", True
 )
+
+#: The backend that is used to login the user. By default, we use the Django
+#: default, i.e. :class:`django.contrib.auth.backends.ModelBackend`
+HELMHOLTZ_USER_BACKEND: str = getattr(
+    settings,
+    "HELMHOLTZ_USER_BACKEND",
+    "django.contrib.auth.backends.ModelBackend",
+)
