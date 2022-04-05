@@ -130,6 +130,9 @@ aai_user_updated = Signal()
 #:     The request holding the session of the user.
 #: userinfo: Dict[str, Any]
 #:     The userinfo as obtained from the Helmholtz AAI
+#: to_update: Dict[str, Any]
+#:     A mapping from field name to value for the fields that have changed
+#:     during the update.
 #:
 #: See Also
 #: --------

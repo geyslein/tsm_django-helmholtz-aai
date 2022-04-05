@@ -367,7 +367,12 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             to_update["last_name"] = userinfo["family_name"]
         if user.email != email:
             to_update["email"] = email
+        self.apply_updates(to_update)
+
+    def apply_updates(self, to_update: Dict):
+        """Apply the update to the user and send the signal."""
         if to_update:
+            user = self.aai_user
             for key, val in to_update.items():
                 setattr(user, key, val)
             user.save()
@@ -377,7 +382,8 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                 sender=user.__class__,
                 user=user,
                 request=self.request,
-                userinfo=userinfo,
+                userinfo=self.userinfo,
+                to_update=to_update,
             )
 
     def synchronize_vos(self):
