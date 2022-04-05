@@ -433,14 +433,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             vo = models.HelmholtzVirtualOrganization.objects.get(
                 eduperson_entitlement=vo_name
             )
-            user.groups.remove(vo)
-            signals.aai_vo_left.send(
-                sender=vo.__class__,
-                request=self.request,
-                user=user,
-                vo=vo,
-                userinfo=self.userinfo,
-            )
+            self.leave_vo(vo)
 
         # add new VOs in the database
         for vo_name in set(actual_vos) - set(vo_names):
@@ -449,20 +442,38 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                     eduperson_entitlement=vo_name
                 )
             except models.HelmholtzVirtualOrganization.DoesNotExist:  # pylint: disable=no-member
-                vo = models.HelmholtzVirtualOrganization.objects.create(
-                    name=vo_name, eduperson_entitlement=vo_name
-                )
-                signals.aai_vo_created.send(
-                    sender=vo.__class__,
-                    request=self.request,
-                    vo=vo,
-                    userinfo=self.userinfo,
-                )
-            user.groups.add(vo)
-            signals.aai_vo_entered.send(
-                sender=vo.__class__,
-                request=self.request,
-                user=user,
-                vo=vo,
-                userinfo=self.userinfo,
-            )
+                self.create_vo(vo_name)
+            self.join_vo(vo)
+
+    def leave_vo(self, vo: models.HelmholtzVirtualOrganization):
+        """Leave the given VO."""
+        user = self.aai_user
+        user.groups.remove(vo)
+        signals.aai_vo_left.send(
+            sender=vo.__class__,
+            request=self.request,
+            user=user,
+            vo=vo,
+            userinfo=self.userinfo,
+        )
+
+    def join_vo(self, vo: models.HelmholtzVirtualOrganization):
+        """Join the given VO."""
+        user = self.aai_user
+        user.groups.add(vo)
+        signals.aai_vo_entered.send(
+            sender=vo.__class__,
+            request=self.request,
+            user=user,
+            vo=vo,
+            userinfo=self.userinfo,
+        )
+
+    def create_vo(self, vo_name: str):
+        """Create a new VO with the given name."""
+        vo = models.HelmholtzVirtualOrganization.objects.create(
+            name=vo_name, eduperson_entitlement=vo_name
+        )
+        signals.aai_vo_created.send(
+            sender=vo.__class__, request=self.request, vo=vo, userinfo=self
+        )
