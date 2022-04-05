@@ -177,6 +177,12 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         user.backend = app_settings.HELMHOLTZ_USER_BACKEND  # type: ignore
         aai_login(self.request, user, self.userinfo)
 
+    def get_success_url(self) -> str:
+        """Return the URL to redirect to after processing a valid form."""
+        return self.request.session.pop(
+            "forward_after_aai_login", settings.LOGIN_REDIRECT_URL
+        )
+
     def get(self, request):
         """Login the Helmholtz AAI user and update the data.
 
@@ -194,11 +200,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
 
         self.login_user(self.aai_user)
 
-        return_url = request.session.pop(
-            "forward_after_aai_login", settings.LOGIN_REDIRECT_URL
-        )
-
-        return redirect(return_url)
+        return redirect(self.get_success_url())
 
     def handle_no_permission(self):
         """Handle the response if the permission has been denied.
