@@ -444,7 +444,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
                     eduperson_entitlement=vo_name
                 )
             except models.HelmholtzVirtualOrganization.DoesNotExist:  # pylint: disable=no-member
-                self.create_vo(vo_name)
+                vo = self.create_vo(vo_name)
             self.join_vo(vo)
 
     def leave_vo(self, vo: models.HelmholtzVirtualOrganization):
@@ -471,7 +471,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             userinfo=self.userinfo,
         )
 
-    def create_vo(self, vo_name: str):
+    def create_vo(self, vo_name: str) -> models.HelmholtzVirtualOrganization:
         """Create a new VO with the given name."""
         vo = models.HelmholtzVirtualOrganization.objects.create(
             name=vo_name, eduperson_entitlement=vo_name
@@ -479,3 +479,4 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         signals.aai_vo_created.send(
             sender=vo.__class__, request=self.request, vo=vo, userinfo=self
         )
+        return vo
