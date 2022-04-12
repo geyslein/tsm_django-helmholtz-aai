@@ -67,7 +67,7 @@ We use automated formatters (see their config in ``pyproject.toml`` and
 
 -  `Black <https://black.readthedocs.io/en/stable/>`__ for standardized
    code formatting
--  `blackdoc <https://blackdoc.readthedocs.io/en/stable/>`__ for
+-  `blackdoc <https://blackdoc.readthedocs.io/en/latest/>`__ for
    standardized code formatting in documentation
 -  `Flake8 <http://flake8.pycqa.org/en/latest/>`__ for general code
    quality
