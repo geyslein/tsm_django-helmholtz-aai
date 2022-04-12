@@ -279,7 +279,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
         if not self.is_new_user:
             # check if we need to update the email and if yes, check if this
             # is possible
-            if self.aai_user.email != email:
+            if self.aai_user.email.lower() != email.lower():
                 if self._email_exists(email):
                     self.permission_denied_reason = (
                         reasons.email_changed_and_taken
@@ -367,7 +367,7 @@ class HelmholtzAuthentificationView(PermissionRequiredMixin, generic.View):
             to_update["first_name"] = userinfo["given_name"]
         if user.last_name != userinfo["family_name"]:
             to_update["last_name"] = userinfo["family_name"]
-        if user.email != email:
+        if user.email.lower() != email.lower():
             to_update["email"] = email
         self.apply_updates(to_update)
 
