@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import re
 import warnings
+from typing import Optional
 
 from django.conf import settings
 
@@ -243,3 +244,20 @@ HELMHOLTZ_USER_BACKEND: str = getattr(
     "HELMHOLTZ_USER_BACKEND",
     "django.contrib.auth.backends.ModelBackend",
 )
+
+#: Root url for the django application
+#:
+#: The login requires a redirect url that is derived from the
+#: view with the name ``"django_helmholtz_aai:auth"`` and the protocoll and
+#: host name of your application. In case your application is behind a
+#: reverse proxy that does not forward correct host or protocoll, you can use
+#: this setting to set the URL manually.
+#:
+#: Examples
+#: --------
+#: If this app is included via
+#: ``path("helmholtz-aai/", include("django_helmholtz_aai.urls"))`` in your
+#: url-config and available at ``https://example.com/helmholtz-aai/``,
+#: then the ``ROOT_URL`` in your ``settings.py`` should be
+#: ``https://example.com``
+ROOT_URL: Optional[str] = getattr(settings, "ROOT_URL", None)
