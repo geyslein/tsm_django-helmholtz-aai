@@ -28,7 +28,7 @@ the `configuration`_ and examples provided there.
 
 Copyright
 ---------
-Copyright © 2021 Helmholtz-Zentrum Hereon, 2020-2021 Helmholtz-Zentrum Geesthacht
+Copyright © 2020-2023 Helmholtz-Zentrum Hereon, 2020-2023 Helmholtz-Zentrum Geesthacht
 
 Licensed under the EUPL-1.2-or-later
 
