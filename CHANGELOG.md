@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.7: Add ROOT_URL config parameter
+
+This patch adds the possibility to add a `ROOT_URL` that can be used
+if the application is behind a reverse proxy that does not forward the
+correct *host* or *protocoll* to the django application.
+
 ## v0.1.6: Add HELMHOLTZ_USER_BACKEND config parameter
 
 This patch adds the possibility to specify the backend that is used for login
